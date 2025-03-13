@@ -20,16 +20,29 @@ const tcpServer = createServer((socket: Socket): void => {
   logger.info(
     `New TCP client connected from ${socket.remoteAddress}:${socket.remotePort}`
   );
+  let buffer = '';
 
   socket.on('data', (data: Buffer): void => {
-    const message: string = data.toString().trim();
-    logger.info({ message, source: 'TCP Client' }, 'Received message');
+    const message: string = data.toString();
+    buffer += message;
 
-    // broadcast the message to all clients
-    CONSTANTS.clients.forEach((client: http.ServerResponse): void => {
-      logger.info(`Client message sent`);
-      client.write(`data: ${message}\n\n`);
-    });
+    let boundaryIndex;
+    while ((boundaryIndex = buffer.indexOf('\n')) !== -1) {
+      const completeMessage = buffer.slice(0, boundaryIndex).trim();
+      buffer = buffer.slice(boundaryIndex + 1);
+
+      logger.info(
+        { message: completeMessage, source: 'TCP Client' },
+        'Received message'
+      );
+
+      // broadcast the message to all clients
+      CONSTANTS.clients.forEach((client: http.ServerResponse): void => {
+        logger.info(`Client message sent`);
+
+        client.write(`data: ${completeMessage}\n\n`);
+      });
+    }
   });
 
   socket.on('end', (): void => {
@@ -44,12 +57,15 @@ tcpServer.listen(CONSTANTS.TCP_PORT, '0.0.0.0', () => {
 // Create an HTTP Server for SSE
 const httpServer = http.createServer(
   (req: http.IncomingMessage, res: http.ServerResponse): void => {
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+
     if (req.url === '/events') {
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
       });
+      res.flushHeaders();
 
       res.write(': connected\n\n');
       CONSTANTS.clients.push(res);
