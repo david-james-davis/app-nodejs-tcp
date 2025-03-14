@@ -32,8 +32,7 @@ const tcpServer = createServer((socket: Socket): void => {
       buffer = buffer.slice(boundaryIndex + 1);
 
       logger.info(
-        { message: completeMessage, source: 'TCP Client' },
-        'Received message'
+        { message: 'Received message', source: 'TCP Client' }
       );
 
       // broadcast the message to all clients
